@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
 project(cartographer_ros)
 
@@ -72,7 +72,6 @@ add_library(${PROJECT_NAME} SHARED
   src/node_constants.cpp
   src/node.cpp
   src/node_options.cpp
-  src/offline_node.cpp
   src/playable_bag.cpp
   src/ros_log_sink.cpp
   src/ros_map.cpp
@@ -164,17 +163,24 @@ target_link_libraries(cartographer_occupancy_grid_node PRIVATE
   rclcpp::rclcpp
 )
 
-add_executable(cartographer_offline_node src/offline_node_main.cpp)
+# offline_node.cpp defines gflags that cartographer_node and cartographer_assets_writer also define, and every
+# object of a shared library registers its flags on load, so it stays out of the library
+add_executable(cartographer_offline_node src/offline_node_main.cpp src/offline_node.cpp)
 target_include_directories(cartographer_offline_node PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
   "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
 )
+if ("$ENV{ROS_DISTRO}" STRLESS "kilted")
+  target_compile_definitions(cartographer_offline_node PRIVATE "-DUSE_URDF_H_FILES")
+endif()
 target_link_libraries(cartographer_offline_node PRIVATE
   ${PROJECT_NAME}
   cartographer
   gflags
   rclcpp::rclcpp
+  ${tf2_msgs_TARGETS}
+  urdf::urdf
 )
 
 add_executable(cartographer_assets_writer src/assets_writer_main.cpp)
